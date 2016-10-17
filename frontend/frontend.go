@@ -5,14 +5,18 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/capotej/groupcache-db-experiment/api"
-	"github.com/capotej/groupcache-db-experiment/client"
-	"github.com/golang/groupcache"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/rpc"
 	"os"
 	"strconv"
+	"strings"
+	"time"
+
+	"github.com/capotej/groupcache-db-experiment/api"
+	"github.com/capotej/groupcache-db-experiment/client"
+	"github.com/golang/groupcache"
 )
 
 type Frontend struct {
@@ -48,6 +52,22 @@ func (s *Frontend) Start(port string) {
 	http.Serve(l, nil)
 }
 
+func updatePeers(peers *groupcache.HTTPPool) {
+	for {
+		fmt.Println("Reading file peers.txt. ")
+		b, err := ioutil.ReadFile("peers.txt")
+		if err == nil {
+			hosts := strings.Split(string(b), ", ")
+			fmt.Println("Host:", hosts)
+			peers.Set(hosts...)
+		} else {
+			fmt.Println("Error reading file", err)
+		}
+		fmt.Println("Sleeping. ")
+		time.Sleep(5 * time.Second)
+	}
+}
+
 func main() {
 
 	var port = flag.String("port", "8001", "groupcache port")
@@ -65,9 +85,10 @@ func main() {
 			return nil
 		}))
 
-	peers.Set("http://localhost:8001", "http://localhost:8002", "http://localhost:8003")
+	go updatePeers(peers)
+	// peers.Set("http://localhost:8001", "http://localhost:8002", "http://localhost:8003")
 
-	frontendServer := NewServer(stringcache)
+	// frontendServer := NewServer(stringcache)
 
 	i, err := strconv.Atoi(*port)
 	if err != nil {
@@ -76,7 +97,7 @@ func main() {
 		os.Exit(2)
 	}
 	var frontEndport = ":" + strconv.Itoa(i+1000)
-	go frontendServer.Start(frontEndport)
+	// go frontendServer.Start(frontEndport)
 
 	fmt.Println(stringcache)
 	fmt.Println("cachegroup slave starting on " + *port)
